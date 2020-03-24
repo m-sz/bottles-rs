@@ -1,15 +1,25 @@
-//! This module holds the
+//! Holds the Dispatcher struct which is the heart of the message mechanism.
+//!
 use std::collections::HashMap;
 use std::any::TypeId;
 use std::rc::Rc;
 
 type UntypedCallback = Box<dyn FnMut(*const ())>;
 
+/// Dispatches messages among subscribers
+///
+/// A subscriber is a closure which takes exactly one argument: `Rc<T>` where `T` is the type of
+/// message to receive.
+///
+/// [`Dispatcher`] is type safe by having a mapping of the subscriber's expected type TypeId's and
+/// the closures handling them.
+///
 pub struct Dispatcher {
     map: HashMap<TypeId, Vec<UntypedCallback>>,
 }
 
 impl Dispatcher {
+    /// Creates a new [`Dispatcher`].
     pub fn new() -> Self {
         Self {
             map: HashMap::new()
@@ -68,6 +78,11 @@ impl Dispatcher {
     }
 
     /// Dispatches the message of value `T` to all of the subscribers
+    ///
+    /// # Safety
+    /// This method casts untyped *const () message received internally into the expected type.
+    /// It is safe to be called because of the mapping that ensures the correct messages are
+    /// distributed to subscribers expecting them.
     pub fn dispatch<T: 'static>(&mut self, msg: Rc<T>) {
         let mut subscribers = self.map.get_mut(&TypeId::of::<T>())
             .expect("Can not dispatch a message which has not been registered");

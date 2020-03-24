@@ -1,3 +1,7 @@
+//! Holds the [`Queue`] type which allows for having a mutable context shared between
+//! the subscribers.
+//!
+//! [`Queue`]: struct.Queue.html
 use std::{
     any::TypeId,
     cell::RefCell,
@@ -8,6 +12,13 @@ use crate::dispatcher::Dispatcher;
 
 type UntypedQueueCallback<T> = Box<dyn FnMut(&mut T, *const ())>;
 
+/// A Queue of messages which are expected to be delivered to the corresponding subscribers
+/// along with a reference to a shared context value.
+///
+/// The Queue achieves its goal by enqueueing the awaiting messages in order to dispatch them
+/// on demand by a call to the [`Queue::poll`] method, which accepts the shared context mutable reference.
+///
+/// [`Queue::poll`]: struct.Queue.html#method.poll
 pub struct Queue<T>
 {
     map: HashMap<TypeId, Vec<UntypedQueueCallback<T>>>,
@@ -15,6 +26,8 @@ pub struct Queue<T>
 }
 
 impl<T> Queue<T> {
+    /// Creates a new Queue
+    ///
     pub fn new() -> Self {
         Self {
             map: HashMap::new(),
@@ -22,12 +35,32 @@ impl<T> Queue<T> {
         }
     }
 
+    /// Registers a new message value type to be possible to subscriber to and dispatch.
+    ///
+    /// This is analogous to the [`Dispatcher::register()`] method, but not only it registers the type
+    /// in the provided `dispatcher` but also internally, to create a queue for the specified type.
+    ///
+    /// [`Dispatcher::register()`]: ../dispatcher/struct.Dispatcher.html#method.register
+    ///
     pub fn register<M: 'static>(&mut self, dispatcher: &mut Dispatcher) {
         dispatcher.register::<M>();
         self.map.entry(TypeId::of::<M>()).or_default();
         self.queues.entry(TypeId::of::<M>()).or_default();
     }
 
+    /// Subscribes the provide closure which takes exactly 2 arguments:
+    /// `&mut T` context value
+    /// `Rc<M>` the expected message type.
+    ///
+    /// This is analogous to the [`Dispatcher::subscribe(callback)`] method, but the provided callback will
+    /// be called only when [`Queue::poll(&mut context)`] is called.
+    ///
+    /// ### Implementation details
+    /// The `subscriber` provided to the underlying `dispatcher` is a simple closure which takes the
+    /// message and puts it in the `Queue`'s queue.
+    ///
+    /// [`Dispatcher::subscribe(callback)`]: ../dispatcher/struct.Dispatcher.html#method.subscribe
+    /// [`Queue::poll(&mut context)`]: struct.Queue.html#method.poll
     pub fn subscribe<F, M>(&mut self, dispatcher: &mut Dispatcher, mut f: F)
         where
             F: FnMut(&mut T, Rc<M>) + 'static,
@@ -50,6 +83,8 @@ impl<T> Queue<T> {
             .push(Box::new(wrapped));
     }
 
+    /// Dispatches all accumulated messages to the corresponding subscribers along with the provided
+    /// mutable reference to a context value.
     pub fn poll(&mut self, context: &mut T) {
         for (t, queue) in self.queues.iter_mut() {
             let queue = queue.borrow_mut();
