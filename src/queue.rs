@@ -107,7 +107,7 @@ mod tests {
     use crate::dispatcher::Dispatcher;
 
     struct Greeting { greeting: String }
-    struct Farawell { farawell: String }
+    struct Farewell { farewell: String }
     struct Context { answer: i32, called: bool }
 
     fn context_pop(ctx: &mut Context, msg: Rc<Greeting>) {
@@ -147,27 +147,27 @@ mod tests {
         let mut dispatcher_b = Dispatcher::new();
 
         dispatcher_a.register::<Greeting>();
-        dispatcher_b.register::<Farawell>();
+        dispatcher_b.register::<Farewell>();
 
         let mut queue = Queue::<()>::new();
         queue.register::<Greeting>(&mut dispatcher_a);
-        queue.register::<Farawell>(&mut dispatcher_b);
+        queue.register::<Farewell>(&mut dispatcher_b);
 
         let handle_greeting = |_: &mut (), msg: Rc<Greeting>| {
             assert_eq!(msg.greeting, "Hello, World!");
         };
-        let handle_farawell = |_: &mut (), msg: Rc<Farawell>| {
-            assert_eq!(msg.farawell, "Goodbye!");
+        let handle_farewell = |_: &mut (), msg: Rc<Farewell>| {
+            assert_eq!(msg.farewell, "Goodbye!");
         };
 
         queue.subscribe(&mut dispatcher_a, handle_greeting);
-        queue.subscribe(&mut dispatcher_b, handle_farawell);
+        queue.subscribe(&mut dispatcher_b, handle_farewell);
 
         dispatcher_a.dispatch(Rc::new(Greeting {
             greeting: "Hello, World!".to_string()
         }));
-        dispatcher_b.dispatch(Rc::new(Farawell {
-            farawell: "Goodbye!".to_string()
+        dispatcher_b.dispatch(Rc::new(Farewell {
+            farewell: "Goodbye!".to_string()
         }));
 
         queue.poll(&mut ());
