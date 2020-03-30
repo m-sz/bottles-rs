@@ -64,12 +64,12 @@ impl Dispatcher {
             F: FnMut(Rc<T>) + 'static,
             T: 'static
     {
-        let mut subs = match self.map.get_mut(&TypeId::of::<T>()) {
+        match self.map.get_mut(&TypeId::of::<T>()) {
             None => panic!("Can't subscribe to a message which is not registered!"),
             Some(subs) => subs
         };
 
-        let mut wrapped = move |msg: *const ()| {
+        let wrapped = move |msg: *const ()| {
             let typed = unsafe { Rc::from_raw(msg as *const T) };
             (f)(typed)
         };
@@ -84,7 +84,7 @@ impl Dispatcher {
     /// It is safe to be called because of the mapping that ensures the correct messages are
     /// distributed to subscribers expecting them.
     pub fn dispatch<T: 'static>(&mut self, msg: Rc<T>) {
-        let mut subscribers = self.map.get_mut(&TypeId::of::<T>())
+        let subscribers = self.map.get_mut(&TypeId::of::<T>())
             .expect("Can not dispatch a message which has not been registered");
 
         for subscriber in subscribers.iter_mut() {
@@ -106,7 +106,7 @@ mod tests {
         greeting: String
     }
 
-    struct Farawell {
+    struct Farewell {
         farawell: String
     }
 
@@ -129,7 +129,7 @@ mod tests {
         let called = Rc::new(RefCell::new(false));
         {
             let called = called.clone();
-            let mut pop = move |msg| {
+            let pop = move |msg| {
                 *called.borrow_mut() = true;
                 pop(msg);
             };
